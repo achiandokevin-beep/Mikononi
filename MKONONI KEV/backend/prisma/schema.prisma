@@ -1,0 +1,141 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"
+  url = env("DATABASE_URL") }
+enum IncidentStatus { POSSIBLE_OUTAGE CONFIRMED RESOLVED REJECTED }
+enum ReportStatus { REPORTED INVESTIGATING CONFIRMED RESOLVED REJECTED }
+enum SmsStatus { PENDING SENT DELIVERED FAILED }
+
+model NetworkReport {
+  id           String       @id @default(cuid())
+  reportNumber String       @unique
+  phoneNumber  String
+  issueType    String
+  description  String?
+  location     String
+  area         String
+  status       ReportStatus @default(REPORTED)
+  isDemo       Boolean      @default(false)
+  incidentId   String?
+  incident     Incident?    @relation(fields: [incidentId], references: [id])
+  createdAt    DateTime     @default(now())
+  @@index([phoneNumber])
+  @@index([area, issueType, createdAt])
+}
+model Incident {
+  id             String         @id @default(cuid())
+  incidentNumber String         @unique
+  title          String
+  issueType      String
+  area           String
+  affectedUsers  Int            @default(0)
+  status         IncidentStatus @default(POSSIBLE_OUTAGE)
+  isDemo         Boolean        @default(false)
+  detectedAt     DateTime       @default(now())
+  confirmedAt    DateTime?
+  resolvedAt     DateTime?
+  reports        NetworkReport[]
+  @@index([status])
+  @@index([area])
+}
+model UssdSession {
+  id          String    @id @default(cuid())
+  sessionId   String    @unique
+  phoneNumber String
+  serviceCode String
+  networkCode String?
+  currentStep String
+  userInput   String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+  @@index([phoneNumber])
+}
+model SmsMessage {
+  id                String    @id @default(cuid())
+  providerMessageId String?   @unique
+  phoneNumber       String
+  message           String
+  status            SmsStatus @default(PENDING)
+  error             String?
+  incidentId        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@index([phoneNumber])
+  @@index([status])
+}
+
+enum Role { SUPER_ADMIN NETWORK_OPERATOR SUPPORT_AGENT FRAUD_ANALYST CUSTOMER }
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CUSTOMER)
+  phoneNumber  String?
+  createdAt    DateTime @default(now())
+  @@index([phoneNumber])
+}
+model FraudReport {
+  id           String   @id @default(cuid())
+  reportNumber String   @unique
+  phoneNumber  String
+  category     String
+  description  String?
+  riskLevel    String
+  status       String   @default("OPEN")
+  source       String   @default("CUSTOMER_REPORTED")
+  createdAt    DateTime @default(now())
+  @@index([phoneNumber, createdAt])
+  @@index([riskLevel])
+}
+model SupportMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  phoneNumber    String?
+  role           String
+  content        String
+  intent         String?
+  escalated      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  @@index([conversationId, createdAt])
+  @@index([escalated])
+}
+model AirtimeTransaction {
+  id            String   @id @default(cuid())
+  phoneNumber   String
+  amount        Int
+  currency      String   @default("KES")
+  transactionId String?
+  status        String
+  provider      String   @default("africastalking")
+  error         String?
+  createdAt     DateTime @default(now())
+  @@index([phoneNumber])
+}
+model DataTransaction {
+  id            String   @id @default(cuid())
+  phoneNumber   String
+  packageCode   String
+  transactionId String?
+  status        String
+  error         String?
+  createdAt     DateTime @default(now())
+  @@index([phoneNumber])
+}
+model Call {
+  id            String   @id @default(cuid())
+  phoneNumber   String
+  callSessionId String   @unique
+  purpose       String?
+  status        String
+  duration      Int?
+  createdAt     DateTime @default(now())
+  @@index([phoneNumber])
+}
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  target    String?
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
